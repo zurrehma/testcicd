@@ -1,0 +1,489 @@
+name: CI Pipeline (Windows)
+
+on:
+  workflow_dispatch: {}
+
+env:
+  # pipeline variables (mirror of your GitLab variables)
+  GIT_CLEAN_FLAGS: none
+  ENVIRONMENT: dev
+  RELEASE: "26.1.217"
+  BUILD_NUMBER: "${{ github.run_id }}"
+  DEPLOY_AWS: "false"
+  DEPLOY_FTP: "true"
+  DEPLOY_AZURE: "false"
+  BACKUP_AGENT: "false"
+  SKIP_AGENT_UPGRADE: "false"
+  BUILD_AGENT_MAC: "false"
+  BUILD_AGENT_WINDOWS: "false"
+  BUILD_AGENT_LINUX: "false"
+  BUILD_AGENT_DATACOLLECTOR: "false"
+
+jobs:
+
+  # ----------------------------
+  # checkout (creates build_vars.env artifact)
+  # ----------------------------
+  checkout:
+    name: checkout
+    runs-on: windows-latest
+    outputs:
+      artifact: build-vars
+    steps:
+      - name: Checkout workflow repo (optional)
+        uses: actions/checkout@v4
+
+      - name: Clone or update arexdata-dsp (Bitbucket)
+        shell: pwsh
+        run: |
+          if (Test-Path "arexdata-dsp\.git") {
+            git -C "arexdata-dsp" switch develop -f
+            git -C "arexdata-dsp" reset --hard
+            git -C "arexdata-dsp" pull
+          } else {
+            git clone https://${{ secrets.BITBUCKET_USER }}:${{ secrets.BITBUCKET_TOKEN }}@bitbucket.org/arexdata/arexdata-dsp.git arexdata-dsp
+            git fetch
+            git -C "arexdata-dsp" switch develop
+          }
+
+      - name: Clone or update arexdata-devops (Bitbucket)
+        shell: pwsh
+        run: |
+          if (Test-Path "arexdata-devops\.git") {
+            git -C "arexdata-devops" reset --hard
+            git -C "arexdata-devops" pull
+          } else {
+            git clone https://${{ secrets.BITBUCKET_USER }}:${{ secrets.BITBUCKET_TOKEN }}@bitbucket.org/arexdata/arexdata-devops.git arexdata-devops
+          }
+
+      - name: Compute build variables
+        shell: pwsh
+        run: |
+          $BUILD_AGENT_ALL = "false"
+          $BUILD_AGENT_INSTALLER = "false"
+
+          if ($env:SKIP_AGENT_UPGRADE -ne "true" -and
+              $env:BUILD_AGENT_MAC -eq "false" -and
+              $env:BUILD_AGENT_WINDOWS -eq "false" -and
+              $env:BUILD_AGENT_LINUX -eq "false" -and
+              $env:BUILD_AGENT_DATACOLLECTOR -eq "false") {
+            $BUILD_AGENT_ALL = "true"
+          }
+
+          if ($env:SKIP_AGENT_UPGRADE -ne "true" -and
+              ($BUILD_AGENT_ALL -eq "true" -or $env:BUILD_AGENT_WINDOWS -eq "true" -or $env:BUILD_AGENT_DATACOLLECTOR -eq "true")) {
+            $BUILD_AGENT_INSTALLER = "true"
+          }
+
+          "BUILD_AGENT_ALL=$BUILD_AGENT_ALL" | Out-File -FilePath build_vars.env -Encoding utf8
+          "BUILD_AGENT_INSTALLER=$BUILD_AGENT_INSTALLER" | Add-Content -Path build_vars.env
+          Get-Content build_vars.env
+
+      - name: Upload build_vars artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-vars
+          path: build_vars.env
+
+  # ----------------------------
+  # build_agent_cleanup
+  # ----------------------------
+  build_agent_cleanup:
+    name: build_agent_cleanup
+    runs-on: windows-latest
+    needs: checkout
+    if: ${{ env.SKIP_AGENT_UPGRADE != 'true' && ( env.BUILD_AGENT_MAC == 'true' || env.BUILD_AGENT_WINDOWS == 'true' || env.BUILD_AGENT_LINUX == 'true' || env.BUILD_AGENT_DATACOLLECTOR == 'true' || ( env.BUILD_AGENT_MAC == 'false' && env.BUILD_AGENT_WINDOWS == 'false' && env.BUILD_AGENT_LINUX == 'false' && env.BUILD_AGENT_DATACOLLECTOR == 'false' ) ) }}
+    steps:
+      - name: Download build-vars
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
+      - name: Run cleanup
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -cleanup
+
+  # ----------------------------
+  # build_agent_mac
+  # ----------------------------
+  build_agent_mac:
+    name: build_agent_mac
+    runs-on: windows-latest
+    needs: checkout
+    # This job will run when BUILD_AGENT_MAC == "true" OR when all build flags are false (default)
+    if: ${{ env.SKIP_AGENT_UPGRADE != 'true' && ( env.BUILD_AGENT_MAC == 'true' || ( env.BUILD_AGENT_MAC == 'false' && env.BUILD_AGENT_WINDOWS == 'false' && env.BUILD_AGENT_LINUX == 'false' && env.BUILD_AGENT_DATACOLLECTOR == 'false' ) ) }}
+    steps:
+      - name: Download build-vars
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
+      - name: Build Mac Agent
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build agentmac
+
+  # ----------------------------
+  # build_agent_windows
+  # ----------------------------
+  build_agent_windows:
+    name: build_agent_windows
+    runs-on: windows-latest
+    needs: checkout
+    if: ${{ env.SKIP_AGENT_UPGRADE != 'true' && ( env.BUILD_AGENT_WINDOWS == 'true' || ( env.BUILD_AGENT_MAC == 'false' && env.BUILD_AGENT_WINDOWS == 'false' && env.BUILD_AGENT_LINUX == 'false' && env.BUILD_AGENT_DATACOLLECTOR == 'false' ) ) }}
+    steps:
+      - name: Download build-vars
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
+      - name: Build Windows Agent
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build endpoint
+
+  # ----------------------------
+  # build_agent_linux
+  # ----------------------------
+  build_agent_linux:
+    name: build_agent_linux
+    runs-on: windows-latest
+    needs: checkout
+    if: ${{ env.SKIP_AGENT_UPGRADE != 'true' && ( env.BUILD_AGENT_LINUX == 'true' || ( env.BUILD_AGENT_MAC == 'false' && env.BUILD_AGENT_WINDOWS == 'false' && env.BUILD_AGENT_LINUX == 'false' && env.BUILD_AGENT_DATACOLLECTOR == 'false' ) ) }}
+    steps:
+      - name: Download build-vars
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
+      - name: Build Linux Agent
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build agentlinux
+
+  # ----------------------------
+  # build_agent_datacollector
+  # ----------------------------
+  build_agent_datacollector:
+    name: build_agent_datacollector
+    runs-on: windows-latest
+    needs: checkout
+    if: ${{ env.SKIP_AGENT_UPGRADE != 'true' && ( env.BUILD_AGENT_DATACOLLECTOR == 'true' || ( env.BUILD_AGENT_MAC == 'false' && env.BUILD_AGENT_WINDOWS == 'false' && env.BUILD_AGENT_LINUX == 'false' && env.BUILD_AGENT_DATACOLLECTOR == 'false' ) ) }}
+    steps:
+      - name: Download build-vars
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
+      - name: Build Datacollector
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build datacollector
+
+  # ----------------------------
+  # build_agent_installer
+  # ----------------------------
+  build_agent_installer:
+    name: build_agent_installer
+    runs-on: windows-latest
+    needs:
+      - checkout
+      - build_agent_datacollector
+      - build_agent_windows
+    if: ${{ env.SKIP_AGENT_UPGRADE != 'true' && ( env.BUILD_AGENT_DATACOLLECTOR == 'true' || env.BUILD_AGENT_WINDOWS == 'true' || ( env.BUILD_AGENT_MAC == 'false' && env.BUILD_AGENT_WINDOWS == 'false' && env.BUILD_AGENT_LINUX == 'false' && env.BUILD_AGENT_DATACOLLECTOR == 'false' ) ) }}
+    steps:
+      - name: Download build-vars
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
+      - name: Build installer
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build installer
+
+  # ----------------------------
+  # download_agent_azure
+  # ----------------------------
+  download_agent_azure:
+    name: download_agent_azure
+    runs-on: windows-latest
+    needs: checkout
+    if: ${{ env.DEPLOY_AZURE == 'true' && env.SKIP_AGENT_UPGRADE == 'true' }}
+    steps:
+      - name: Download build-vars
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
+      - name: Download last version from Azure
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build downloadlastversionazure
+
+  # ----------------------------
+  # download_agent_ftp
+  # ----------------------------
+  download_agent_ftp:
+    name: download_agent_ftp
+    runs-on: windows-latest
+    needs: checkout
+    if: ${{ env.DEPLOY_FTP == 'true' && env.SKIP_AGENT_UPGRADE == 'true' }}
+    steps:
+      - name: Download build-vars
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
+      - name: Download last version from FTP
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build downloadlastversionftp
+
+  # ----------------------------
+  # download_agents (aggregated)
+  # ----------------------------
+  download_agents:
+    name: download_agents
+    runs-on: windows-latest
+    needs: checkout
+    if: ${{ env.DEPLOY_FTP == 'true' && ( env.SKIP_AGENT_UPGRADE != 'true' && ( env.BUILD_AGENT_MAC != 'false' || env.BUILD_AGENT_WINDOWS != 'false' || env.BUILD_AGENT_LINUX != 'false' || env.BUILD_AGENT_DATACOLLECTOR != 'false' ) ) }}
+    steps:
+      - name: Download build-vars
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
+      - name: Download agents via FTP
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build downloadlastversionftp
+
+  # ----------------------------
+  # deploy_aws
+  # ----------------------------
+  deploy_aws:
+    name: deploy_aws
+    runs-on: windows-latest
+    needs: checkout
+    if: ${{ env.DEPLOY_AWS == 'true' }}
+    steps:
+      - name: Upload build-vars
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
+      - name: Deploy to AWS
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build uploadamazon
+
+  # ----------------------------
+  # deploy_azure
+  # ----------------------------
+  deploy_azure:
+    name: deploy_azure
+    runs-on: windows-latest
+    needs: checkout
+    if: ${{ env.DEPLOY_AZURE == 'true' && env.SKIP_AGENT_UPGRADE == 'false' }}
+    steps:
+      - name: Download build-vars
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
+      - name: Deploy to Azure
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build uploadazure
+
+  # ----------------------------
+  # backup_ftp
+  # ----------------------------
+  backup_ftp:
+    name: backup_ftp
+    runs-on: windows-latest
+    needs: checkout
+    if: ${{ env.BACKUP_AGENT == 'true' && env.DEPLOY_FTP == 'true' && env.SKIP_AGENT_UPGRADE == 'false' }}
+    steps:
+      - name: Download build-vars
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
+      - name: Backup FTP
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build backupftp
+
+  # ----------------------------
+  # deploy_ftp
+  # ----------------------------
+  deploy_ftp:
+    name: deploy_ftp
+    runs-on: windows-latest
+    needs: build_agent_installer
+    if: ${{ env.DEPLOY_FTP == 'true' && env.SKIP_AGENT_UPGRADE == 'false' }}
+    steps:
+      - name: Download build-vars
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
+      - name: Deploy to FTP
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build uploadftp
+
+  # ----------------------------
+  # build_services (wait)
+  # ----------------------------
+  build_services:
+    name: build_services
+    runs-on: windows-latest
+    needs: checkout
+    steps:
+      - name: Build services (wait)
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build wait
+
+  # ----------------------------
+  # build_ingest_service
+  # ----------------------------
+  build_ingest_service:
+    name: build_ingest_service
+    runs-on: windows-latest
+    needs: build_services
+    steps:
+      - name: Build ingest service
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build ingest
+
+  # ----------------------------
+  # build_scheduler_service
+  # ----------------------------
+  build_scheduler_service:
+    name: build_scheduler_service
+    runs-on: windows-latest
+    needs: build_services
+    steps:
+      - name: Build scheduler service
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build scheduler
+
+  # ----------------------------
+  # build_api_service
+  # ----------------------------
+  build_api_service:
+    name: build_api_service
+    runs-on: windows-latest
+    needs: build_services
+    steps:
+      - name: Build api service
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build api
+
+  # ----------------------------
+  # build_ui_service
+  # ----------------------------
+  build_ui_service:
+    name: build_ui_service
+    runs-on: windows-latest
+    needs: build_services
+    steps:
+      - name: Build UI service
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -build ui
+
+  # ----------------------------
+  # build_images
+  # ----------------------------
+  build_images:
+    name: build_images
+    runs-on: windows-latest
+    needs:
+      - build_ui_service
+      - build_api_service
+      - build_scheduler_service
+      - build_ingest_service
+    steps:
+      - name: Build docker images
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -buildimg all
+
+  # ----------------------------
+  # upload_images (split into multiple steps)
+  # ----------------------------
+  upload_images:
+    name: upload_images
+    runs-on: windows-latest
+    needs: build_images
+    steps:
+      - name: Upload UI image
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -uploadimg ui
+
+      - name: Upload ingest image
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -uploadimg ingest
+
+      - name: Upload scheduler image
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -uploadimg scheduler
+
+      - name: Upload api image
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -uploadimg api
+
+  # ----------------------------
+  # deploy_dev_eu
+  # ----------------------------
+  deploy_dev_eu:
+    name: deploy dev.eu.arexdata.com
+    runs-on: windows-latest
+    needs: upload_images
+    steps:
+      - name: Deploy to dev.eu.arexdata.com
+        shell: pwsh
+        run: |
+          kubectl config use-context eu
+          kubectl config get-contexts
+          cd arexdata-devops\devops
+          .\deploy.ps1 -operation install -environment dev -apps -domain dev.eu.arexdata.com -use_mssql -nodepool dev -noapm
+
+  # ----------------------------
+  # deploy_dev_lab
+  # ----------------------------
+  deploy_dev_lab:
+    name: deploy dev.lab.local
+    runs-on: windows-latest
+    needs: upload_images
+    steps:
+      - name: Deploy to dev.lab.local
+        shell: pwsh
+        run: |
+          kubectl config use-context microk8s
+          kubectl config get-contexts
+          cd arexdata-devops\devops
+          .\deploy.ps1 -operation install -environment devlab -apps -domain dev.lab.local -noapm
