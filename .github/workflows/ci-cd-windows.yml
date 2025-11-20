@@ -8,7 +8,7 @@ env:
   GIT_CLEAN_FLAGS: none
   ENVIRONMENT: dev
   RELEASE: "26.1.217"
-  BUILD_NUMBER: "${{ github.run_id }}"
+  BUILD_NUMBER: ${{ github.run_id }}
   DEPLOY_AWS: "false"
   DEPLOY_FTP: "true"
   DEPLOY_AZURE: "false"
@@ -86,19 +86,48 @@ jobs:
           path: build_vars.env
 
   # ----------------------------
+  # Helper pattern used in many jobs:
+  # 1) decide step writes run_job=true/false to $GITHUB_OUTPUT
+  # 2) subsequent steps use `if: ${{ steps.decide.outputs.run_job == 'true' }}`
+  # ----------------------------
+
+  # ----------------------------
   # build_agent_cleanup
   # ----------------------------
   build_agent_cleanup:
     name: build_agent_cleanup
     runs-on: windows-latest
     needs: checkout
-    if: ${{ env.SKIP_AGENT_UPGRADE != 'true' && ( env.BUILD_AGENT_MAC == 'true' || env.BUILD_AGENT_WINDOWS == 'true' || env.BUILD_AGENT_LINUX == 'true' || env.BUILD_AGENT_DATACOLLECTOR == 'true' || ( env.BUILD_AGENT_MAC == 'false' && env.BUILD_AGENT_WINDOWS == 'false' && env.BUILD_AGENT_LINUX == 'false' && env.BUILD_AGENT_DATACOLLECTOR == 'false' ) ) }}
     steps:
+      - id: decide
+        name: Decide whether to run build_agent_cleanup
+        shell: pwsh
+        run: |
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $mac = $env:BUILD_AGENT_MAC
+          $win = $env:BUILD_AGENT_WINDOWS
+          $linux = $env:BUILD_AGENT_LINUX
+          $dc = $env:BUILD_AGENT_DATACOLLECTOR
+
+          $cond = ($skip -ne 'true') -and (
+                    ($mac -eq 'true') -or ($win -eq 'true') -or ($linux -eq 'true') -or ($dc -eq 'true') -or
+                    (($mac -eq 'false') -and ($win -eq 'false') -and ($linux -eq 'false') -and ($dc -eq 'false'))
+                  )
+
+          if ($cond) {
+            Write-Host "run_job=true" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "run_job=false" >> $env:GITHUB_OUTPUT
+          }
+
       - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: build-vars
+
       - name: Run cleanup
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         shell: pwsh
         run: |
           cd arexdata-dsp
@@ -111,14 +140,32 @@ jobs:
     name: build_agent_mac
     runs-on: windows-latest
     needs: checkout
-    # This job will run when BUILD_AGENT_MAC == "true" OR when all build flags are false (default)
-    if: ${{ env.SKIP_AGENT_UPGRADE != 'true' && ( env.BUILD_AGENT_MAC == 'true' || ( env.BUILD_AGENT_MAC == 'false' && env.BUILD_AGENT_WINDOWS == 'false' && env.BUILD_AGENT_LINUX == 'false' && env.BUILD_AGENT_DATACOLLECTOR == 'false' ) ) }}
     steps:
+      - id: decide
+        name: Decide whether to run build_agent_mac
+        shell: pwsh
+        run: |
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $mac = $env:BUILD_AGENT_MAC
+          $win = $env:BUILD_AGENT_WINDOWS
+          $linux = $env:BUILD_AGENT_LINUX
+          $dc = $env:BUILD_AGENT_DATACOLLECTOR
+
+          $cond = ($skip -ne 'true') -and (
+                    ($mac -eq 'true') -or
+                    ( ($mac -eq 'false') -and ($win -eq 'false') -and ($linux -eq 'false') -and ($dc -eq 'false') )
+                  )
+
+          if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+
       - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: build-vars
+
       - name: Build Mac Agent
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         shell: pwsh
         run: |
           cd arexdata-dsp
@@ -131,13 +178,32 @@ jobs:
     name: build_agent_windows
     runs-on: windows-latest
     needs: checkout
-    if: ${{ env.SKIP_AGENT_UPGRADE != 'true' && ( env.BUILD_AGENT_WINDOWS == 'true' || ( env.BUILD_AGENT_MAC == 'false' && env.BUILD_AGENT_WINDOWS == 'false' && env.BUILD_AGENT_LINUX == 'false' && env.BUILD_AGENT_DATACOLLECTOR == 'false' ) ) }}
     steps:
+      - id: decide
+        name: Decide whether to run build_agent_windows
+        shell: pwsh
+        run: |
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $mac = $env:BUILD_AGENT_MAC
+          $win = $env:BUILD_AGENT_WINDOWS
+          $linux = $env:BUILD_AGENT_LINUX
+          $dc = $env:BUILD_AGENT_DATACOLLECTOR
+
+          $cond = ($skip -ne 'true') -and (
+                    ($win -eq 'true') -or
+                    ( ($mac -eq 'false') -and ($win -eq 'false') -and ($linux -eq 'false') -and ($dc -eq 'false') )
+                  )
+
+          if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+
       - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: build-vars
+
       - name: Build Windows Agent
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         shell: pwsh
         run: |
           cd arexdata-dsp
@@ -150,13 +216,32 @@ jobs:
     name: build_agent_linux
     runs-on: windows-latest
     needs: checkout
-    if: ${{ env.SKIP_AGENT_UPGRADE != 'true' && ( env.BUILD_AGENT_LINUX == 'true' || ( env.BUILD_AGENT_MAC == 'false' && env.BUILD_AGENT_WINDOWS == 'false' && env.BUILD_AGENT_LINUX == 'false' && env.BUILD_AGENT_DATACOLLECTOR == 'false' ) ) }}
     steps:
+      - id: decide
+        name: Decide whether to run build_agent_linux
+        shell: pwsh
+        run: |
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $mac = $env:BUILD_AGENT_MAC
+          $win = $env:BUILD_AGENT_WINDOWS
+          $linux = $env:BUILD_AGENT_LINUX
+          $dc = $env:BUILD_AGENT_DATACOLLECTOR
+
+          $cond = ($skip -ne 'true') -and (
+                    ($linux -eq 'true') -or
+                    ( ($mac -eq 'false') -and ($win -eq 'false') -and ($linux -eq 'false') -and ($dc -eq 'false') )
+                  )
+
+          if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+
       - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: build-vars
+
       - name: Build Linux Agent
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         shell: pwsh
         run: |
           cd arexdata-dsp
@@ -169,13 +254,32 @@ jobs:
     name: build_agent_datacollector
     runs-on: windows-latest
     needs: checkout
-    if: ${{ env.SKIP_AGENT_UPGRADE != 'true' && ( env.BUILD_AGENT_DATACOLLECTOR == 'true' || ( env.BUILD_AGENT_MAC == 'false' && env.BUILD_AGENT_WINDOWS == 'false' && env.BUILD_AGENT_LINUX == 'false' && env.BUILD_AGENT_DATACOLLECTOR == 'false' ) ) }}
     steps:
+      - id: decide
+        name: Decide whether to run build_agent_datacollector
+        shell: pwsh
+        run: |
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $mac = $env:BUILD_AGENT_MAC
+          $win = $env:BUILD_AGENT_WINDOWS
+          $linux = $env:BUILD_AGENT_LINUX
+          $dc = $env:BUILD_AGENT_DATACOLLECTOR
+
+          $cond = ($skip -ne 'true') -and (
+                    ($dc -eq 'true') -or
+                    ( ($mac -eq 'false') -and ($win -eq 'false') -and ($linux -eq 'false') -and ($dc -eq 'false') )
+                  )
+
+          if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+
       - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: build-vars
+
       - name: Build Datacollector
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         shell: pwsh
         run: |
           cd arexdata-dsp
@@ -191,13 +295,32 @@ jobs:
       - checkout
       - build_agent_datacollector
       - build_agent_windows
-    if: ${{ env.SKIP_AGENT_UPGRADE != 'true' && ( env.BUILD_AGENT_DATACOLLECTOR == 'true' || env.BUILD_AGENT_WINDOWS == 'true' || ( env.BUILD_AGENT_MAC == 'false' && env.BUILD_AGENT_WINDOWS == 'false' && env.BUILD_AGENT_LINUX == 'false' && env.BUILD_AGENT_DATACOLLECTOR == 'false' ) ) }}
     steps:
+      - id: decide
+        name: Decide whether to run build_agent_installer
+        shell: pwsh
+        run: |
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $mac = $env:BUILD_AGENT_MAC
+          $win = $env:BUILD_AGENT_WINDOWS
+          $linux = $env:BUILD_AGENT_LINUX
+          $dc = $env:BUILD_AGENT_DATACOLLECTOR
+
+          $cond = ($skip -ne 'true') -and (
+                    ($dc -eq 'true') -or ($win -eq 'true') -or
+                    ( ($mac -eq 'false') -and ($win -eq 'false') -and ($linux -eq 'false') -and ($dc -eq 'false') )
+                  )
+
+          if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+
       - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: build-vars
+
       - name: Build installer
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         shell: pwsh
         run: |
           cd arexdata-dsp
@@ -210,13 +333,24 @@ jobs:
     name: download_agent_azure
     runs-on: windows-latest
     needs: checkout
-    if: ${{ env.DEPLOY_AZURE == 'true' && env.SKIP_AGENT_UPGRADE == 'true' }}
     steps:
+      - id: decide
+        name: Decide whether to run download_agent_azure
+        shell: pwsh
+        run: |
+          $deploy_azure = $env:DEPLOY_AZURE
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $cond = ($deploy_azure -eq 'true') -and ($skip -eq 'true')
+          if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+
       - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: build-vars
+
       - name: Download last version from Azure
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         shell: pwsh
         run: |
           cd arexdata-dsp
@@ -229,13 +363,24 @@ jobs:
     name: download_agent_ftp
     runs-on: windows-latest
     needs: checkout
-    if: ${{ env.DEPLOY_FTP == 'true' && env.SKIP_AGENT_UPGRADE == 'true' }}
     steps:
+      - id: decide
+        name: Decide whether to run download_agent_ftp
+        shell: pwsh
+        run: |
+          $deploy_ftp = $env:DEPLOY_FTP
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $cond = ($deploy_ftp -eq 'true') -and ($skip -eq 'true')
+          if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+
       - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: build-vars
+
       - name: Download last version from FTP
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         shell: pwsh
         run: |
           cd arexdata-dsp
@@ -248,13 +393,32 @@ jobs:
     name: download_agents
     runs-on: windows-latest
     needs: checkout
-    if: ${{ env.DEPLOY_FTP == 'true' && ( env.SKIP_AGENT_UPGRADE != 'true' && ( env.BUILD_AGENT_MAC != 'false' || env.BUILD_AGENT_WINDOWS != 'false' || env.BUILD_AGENT_LINUX != 'false' || env.BUILD_AGENT_DATACOLLECTOR != 'false' ) ) }}
     steps:
+      - id: decide
+        name: Decide whether to run download_agents
+        shell: pwsh
+        run: |
+          $deploy_ftp = $env:DEPLOY_FTP
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $mac = $env:BUILD_AGENT_MAC
+          $win = $env:BUILD_AGENT_WINDOWS
+          $linux = $env:BUILD_AGENT_LINUX
+          $dc = $env:BUILD_AGENT_DATACOLLECTOR
+
+          $cond = ($deploy_ftp -eq 'true') -and
+                  ($skip -ne 'true') -and
+                  ( ($mac -ne 'false') -or ($win -ne 'false') -or ($linux -ne 'false') -or ($dc -ne 'false') )
+
+          if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+
       - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: build-vars
+
       - name: Download agents via FTP
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         shell: pwsh
         run: |
           cd arexdata-dsp
@@ -267,13 +431,23 @@ jobs:
     name: deploy_aws
     runs-on: windows-latest
     needs: checkout
-    if: ${{ env.DEPLOY_AWS == 'true' }}
     steps:
+      - id: decide
+        name: Decide whether to run deploy_aws
+        shell: pwsh
+        run: |
+          $deploy_aws = $env:DEPLOY_AWS
+          $cond = ($deploy_aws -eq 'true')
+          if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+
       - name: Upload build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: build-vars
+
       - name: Deploy to AWS
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         shell: pwsh
         run: |
           cd arexdata-dsp
@@ -286,13 +460,24 @@ jobs:
     name: deploy_azure
     runs-on: windows-latest
     needs: checkout
-    if: ${{ env.DEPLOY_AZURE == 'true' && env.SKIP_AGENT_UPGRADE == 'false' }}
     steps:
+      - id: decide
+        name: Decide whether to run deploy_azure
+        shell: pwsh
+        run: |
+          $deploy_azure = $env:DEPLOY_AZURE
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $cond = ($deploy_azure -eq 'true') -and ($skip -eq 'false')
+          if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+
       - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: build-vars
+
       - name: Deploy to Azure
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         shell: pwsh
         run: |
           cd arexdata-dsp
@@ -305,13 +490,25 @@ jobs:
     name: backup_ftp
     runs-on: windows-latest
     needs: checkout
-    if: ${{ env.BACKUP_AGENT == 'true' && env.DEPLOY_FTP == 'true' && env.SKIP_AGENT_UPGRADE == 'false' }}
     steps:
+      - id: decide
+        name: Decide whether to run backup_ftp
+        shell: pwsh
+        run: |
+          $backup_agent = $env:BACKUP_AGENT
+          $deploy_ftp = $env:DEPLOY_FTP
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $cond = ($backup_agent -eq 'true') -and ($deploy_ftp -eq 'true') -and ($skip -eq 'false')
+          if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+
       - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: build-vars
+
       - name: Backup FTP
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         shell: pwsh
         run: |
           cd arexdata-dsp
@@ -324,13 +521,24 @@ jobs:
     name: deploy_ftp
     runs-on: windows-latest
     needs: build_agent_installer
-    if: ${{ env.DEPLOY_FTP == 'true' && env.SKIP_AGENT_UPGRADE == 'false' }}
     steps:
+      - id: decide
+        name: Decide whether to run deploy_ftp
+        shell: pwsh
+        run: |
+          $deploy_ftp = $env:DEPLOY_FTP
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $cond = ($deploy_ftp -eq 'true') -and ($skip -eq 'false')
+          if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+
       - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: build-vars
+
       - name: Deploy to FTP
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
         shell: pwsh
         run: |
           cd arexdata-dsp
