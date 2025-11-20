@@ -79,12 +79,9 @@ jobs:
             $BUILD_AGENT_INSTALLER = "true"
           }
 
-          - echo "BUILD_AGENT_ALL=$BUILD_AGENT_ALL" > build_vars.env
-          - echo "BUILD_AGENT_INSTALLER=$BUILD_AGENT_INSTALLER" >> build_vars.env
-          - Get-Content build_vars.env
-          #"BUILD_AGENT_ALL=$BUILD_AGENT_ALL" | Out-File -FilePath build_vars.env -Encoding utf8
-          #"BUILD_AGENT_INSTALLER=$BUILD_AGENT_INSTALLER" | Add-Content -Path build_vars.env
-          # Get-Content build_vars.env
+          "BUILD_AGENT_ALL=$BUILD_AGENT_ALL" | Out-File -FilePath build_vars.env -Encoding utf8
+          "BUILD_AGENT_INSTALLER=$BUILD_AGENT_INSTALLER" | Add-Content -Path build_vars.env
+          Get-Content build_vars.env
 
       - name: Upload build_vars artifact
         uses: actions/upload-artifact@v4
