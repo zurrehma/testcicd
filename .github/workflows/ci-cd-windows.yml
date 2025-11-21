@@ -95,47 +95,47 @@ jobs:
   # 2) subsequent steps use `if: ${{ steps.decide.outputs.run_job == 'true' }}`
   # ----------------------------
 
-  # ----------------------------
-  # build_agent_cleanup
-  # ----------------------------
-  # build_agent_cleanup:
-  #   name: build_agent_cleanup
-  #   runs-on: windows-latest
-  #   needs: checkout
-  #   steps:
-  #     - id: decide
-  #       name: Decide whether to run build_agent_cleanup
-  #       shell: pwsh
-  #       run: |
-  #         $skip = $env:SKIP_AGENT_UPGRADE
-  #         $mac = $env:BUILD_AGENT_MAC
-  #         $win = $env:BUILD_AGENT_WINDOWS
-  #         $linux = $env:BUILD_AGENT_LINUX
-  #         $dc = $env:BUILD_AGENT_DATACOLLECTOR
+  ----------------------------
+  build_agent_cleanup
+  ----------------------------
+  build_agent_cleanup:
+    name: build_agent_cleanup
+    runs-on: windows-latest
+    needs: checkout
+    steps:
+      - id: decide
+        name: Decide whether to run build_agent_cleanup
+        shell: pwsh
+        run: |
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $mac = $env:BUILD_AGENT_MAC
+          $win = $env:BUILD_AGENT_WINDOWS
+          $linux = $env:BUILD_AGENT_LINUX
+          $dc = $env:BUILD_AGENT_DATACOLLECTOR
 
-  #         $cond = ($skip -ne 'true') -and (
-  #                   ($mac -eq 'true') -or ($win -eq 'true') -or ($linux -eq 'true') -or ($dc -eq 'true') -or
-  #                   (($mac -eq 'false') -and ($win -eq 'false') -and ($linux -eq 'false') -and ($dc -eq 'false'))
-  #                 )
+          $cond = ($skip -ne 'true') -and (
+                    ($mac -eq 'true') -or ($win -eq 'true') -or ($linux -eq 'true') -or ($dc -eq 'true') -or
+                    (($mac -eq 'false') -and ($win -eq 'false') -and ($linux -eq 'false') -and ($dc -eq 'false'))
+                  )
 
-  #         if ($cond) {
-  #           Write-Host "run_job=true" >> $env:GITHUB_OUTPUT
-  #         } else {
-  #           Write-Host "run_job=false" >> $env:GITHUB_OUTPUT
-  #         }
+          if ($cond) {
+            Write-Host "run_job=true" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "run_job=false" >> $env:GITHUB_OUTPUT
+          }
 
-  #     - name: Download build-vars
-  #       if: ${{ steps.decide.outputs.run_job == 'true' }}
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: build-vars
+      - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
 
-  #     - name: Run cleanup
-  #       if: ${{ steps.decide.outputs.run_job == 'true' }}
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -cleanup
+      - name: Run cleanup
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
+        shell: pwsh
+        run: |
+          cd arexdata-dsp
+          ..\arexdata-devops\devops\build_dev.ps1 -cleanup
 
   # # ----------------------------
   # # build_agent_mac
