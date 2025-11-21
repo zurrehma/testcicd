@@ -140,7 +140,7 @@ jobs:
         if: ${{ steps.decide.outputs.run_job == 'true' }}
         shell: pwsh
         run: |
-          cd arexdata-dsp
+          # cd arexdata-dsp
           ..\arexdata-devops\devops\build_dev.ps1 -cleanup
 
 
