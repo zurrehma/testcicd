@@ -107,6 +107,8 @@ jobs:
     needs: checkout
 
     steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
       - id: decide
         name: Decide whether to run build_agent_cleanup
         shell: pwsh
