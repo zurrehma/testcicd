@@ -144,6 +144,8 @@ jobs:
         run: |
           cd "${{ github.workspace }}\arexdata-dsp"
           pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -cleanup
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
 
   # # ----------------------------
   # # build_agent_mac
