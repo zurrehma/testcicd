@@ -385,357 +385,450 @@ jobs:
   # # ----------------------------
   # # download_agent_azure
   # # ----------------------------
-  # download_agent_azure:
-  #   name: download_agent_azure
-  #   runs-on: windows-latest
-  #   needs: checkout
-  #   steps:
-  #     - id: decide
-  #       name: Decide whether to run download_agent_azure
-  #       shell: pwsh
-  #       run: |
-  #         $deploy_azure = $env:DEPLOY_AZURE
-  #         $skip = $env:SKIP_AGENT_UPGRADE
-  #         $cond = ($deploy_azure -eq 'true') -and ($skip -eq 'true')
-  #         if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+  download_agent_azure:
+    name: download_agent_azure
+    runs-on: windows-latest
+    needs: checkout
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - id: decide
+        name: Decide whether to run download_agent_azure
+        shell: pwsh
+        run: |
+          $deploy_azure = $env:DEPLOY_AZURE
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $cond = ($deploy_azure -eq 'true') -and ($skip -eq 'true')
+          if ($cond) {
+            "run_job=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+          else {
+            "run_job=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+      - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
 
-  #     - name: Download build-vars
-  #       if: ${{ steps.decide.outputs.run_job == 'true' }}
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: build-vars
-
-  #     - name: Download last version from Azure
-  #       if: ${{ steps.decide.outputs.run_job == 'true' }}
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -build downloadlastversionazure
+      - name: Download last version from Azure
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build downloadlastversionazure
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
 
   # # ----------------------------
   # # download_agent_ftp
   # # ----------------------------
-  # download_agent_ftp:
-  #   name: download_agent_ftp
-  #   runs-on: windows-latest
-  #   needs: checkout
-  #   steps:
-  #     - id: decide
-  #       name: Decide whether to run download_agent_ftp
-  #       shell: pwsh
-  #       run: |
-  #         $deploy_ftp = $env:DEPLOY_FTP
-  #         $skip = $env:SKIP_AGENT_UPGRADE
-  #         $cond = ($deploy_ftp -eq 'true') -and ($skip -eq 'true')
-  #         if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+  download_agent_ftp:
+    name: download_agent_ftp
+    runs-on: windows-latest
+    needs: checkout
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - id: decide
+        name: Decide whether to run download_agent_ftp
+        shell: pwsh
+        run: |
+          $deploy_ftp = $env:DEPLOY_FTP
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $cond = ($deploy_ftp -eq 'true') -and ($skip -eq 'true')
+          if ($cond) {
+            "run_job=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+          else {
+            "run_job=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+      - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
 
-  #     - name: Download build-vars
-  #       if: ${{ steps.decide.outputs.run_job == 'true' }}
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: build-vars
+      - name: Download last version from FTP
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build downloadlastversionftp
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
 
-  #     - name: Download last version from FTP
-  #       if: ${{ steps.decide.outputs.run_job == 'true' }}
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -build downloadlastversionftp
+  # ----------------------------
+  # download_agents (aggregated)
+  # ----------------------------
+  download_agents:
+    name: download_agents
+    runs-on: windows-latest
+    needs: checkout
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - id: decide
+        name: Decide whether to run download_agents
+        shell: pwsh
+        run: |
+          $deploy_ftp = $env:DEPLOY_FTP
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $mac = $env:BUILD_AGENT_MAC
+          $win = $env:BUILD_AGENT_WINDOWS
+          $linux = $env:BUILD_AGENT_LINUX
+          $dc = $env:BUILD_AGENT_DATACOLLECTOR
 
-  # # ----------------------------
-  # # download_agents (aggregated)
-  # # ----------------------------
-  # download_agents:
-  #   name: download_agents
-  #   runs-on: windows-latest
-  #   needs: checkout
-  #   steps:
-  #     - id: decide
-  #       name: Decide whether to run download_agents
-  #       shell: pwsh
-  #       run: |
-  #         $deploy_ftp = $env:DEPLOY_FTP
-  #         $skip = $env:SKIP_AGENT_UPGRADE
-  #         $mac = $env:BUILD_AGENT_MAC
-  #         $win = $env:BUILD_AGENT_WINDOWS
-  #         $linux = $env:BUILD_AGENT_LINUX
-  #         $dc = $env:BUILD_AGENT_DATACOLLECTOR
+          $cond = ($deploy_ftp -eq 'true') -and
+                  ($skip -ne 'true') -and
+                  ( ($mac -ne 'false') -or ($win -ne 'false') -or ($linux -ne 'false') -or ($dc -ne 'false') )
 
-  #         $cond = ($deploy_ftp -eq 'true') -and
-  #                 ($skip -ne 'true') -and
-  #                 ( ($mac -ne 'false') -or ($win -ne 'false') -or ($linux -ne 'false') -or ($dc -ne 'false') )
+          if ($cond) {
+            "run_job=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+          else {
+            "run_job=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+      - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
 
-  #         if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+      - name: Download agents via FTP
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build downloadlastversionftp
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
 
-  #     - name: Download build-vars
-  #       if: ${{ steps.decide.outputs.run_job == 'true' }}
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: build-vars
 
-  #     - name: Download agents via FTP
-  #       if: ${{ steps.decide.outputs.run_job == 'true' }}
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -build downloadlastversionftp
+  # ----------------------------
+  # deploy_aws
+  # ----------------------------
+  deploy_aws:
+    name: deploy_aws
+    runs-on: windows-latest
+    needs: checkout
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - id: decide
+        name: Decide whether to run deploy_aws
+        shell: pwsh
+        run: |
+          $deploy_aws = $env:DEPLOY_AWS
+          $cond = ($deploy_aws -eq 'true')
+          if ($cond) {
+            "run_job=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+          else {
+            "run_job=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+      - name: Upload build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
 
-  # # ----------------------------
-  # # deploy_aws
-  # # ----------------------------
-  # deploy_aws:
-  #   name: deploy_aws
-  #   runs-on: windows-latest
-  #   needs: checkout
-  #   steps:
-  #     - id: decide
-  #       name: Decide whether to run deploy_aws
-  #       shell: pwsh
-  #       run: |
-  #         $deploy_aws = $env:DEPLOY_AWS
-  #         $cond = ($deploy_aws -eq 'true')
-  #         if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+      - name: Deploy to AWS
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build uploadamazon
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
 
-  #     - name: Upload build-vars
-  #       if: ${{ steps.decide.outputs.run_job == 'true' }}
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: build-vars
 
-  #     - name: Deploy to AWS
-  #       if: ${{ steps.decide.outputs.run_job == 'true' }}
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -build uploadamazon
+  # ----------------------------
+  # deploy_azure
+  # ----------------------------
+  deploy_azure:
+    name: deploy_azure
+    runs-on: windows-latest
+    needs: checkout
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - id: decide
+        name: Decide whether to run deploy_azure
+        shell: pwsh
+        run: |
+          $deploy_azure = $env:DEPLOY_AZURE
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $cond = ($deploy_azure -eq 'true') -and ($skip -eq 'false')
+          if ($cond) {
+            "run_job=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+          else {
+            "run_job=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+      - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
 
-  # # ----------------------------
-  # # deploy_azure
-  # # ----------------------------
-  # deploy_azure:
-  #   name: deploy_azure
-  #   runs-on: windows-latest
-  #   needs: checkout
-  #   steps:
-  #     - id: decide
-  #       name: Decide whether to run deploy_azure
-  #       shell: pwsh
-  #       run: |
-  #         $deploy_azure = $env:DEPLOY_AZURE
-  #         $skip = $env:SKIP_AGENT_UPGRADE
-  #         $cond = ($deploy_azure -eq 'true') -and ($skip -eq 'false')
-  #         if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+      - name: Deploy to Azure
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build uploadazure
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
 
-  #     - name: Download build-vars
-  #       if: ${{ steps.decide.outputs.run_job == 'true' }}
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: build-vars
+  # ----------------------------
+  # backup_ftp
+  # ----------------------------
+  backup_ftp:
+    name: backup_ftp
+    runs-on: windows-latest
+    needs: checkout
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - id: decide
+        name: Decide whether to run backup_ftp
+        shell: pwsh
+        run: |
+          $backup_agent = $env:BACKUP_AGENT
+          $deploy_ftp = $env:DEPLOY_FTP
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $cond = ($backup_agent -eq 'true') -and ($deploy_ftp -eq 'true') -and ($skip -eq 'false')
+          if ($cond) {
+            "run_job=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+          else {
+            "run_job=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+      - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
 
-  #     - name: Deploy to Azure
-  #       if: ${{ steps.decide.outputs.run_job == 'true' }}
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -build uploadazure
+      - name: Backup FTP
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build backupftp
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
+  # ----------------------------
+  # deploy_ftp
+  # ----------------------------
+  deploy_ftp:
+    name: deploy_ftp
+    runs-on: windows-latest
+    needs: build_agent_installer
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - id: decide
+        name: Decide whether to run deploy_ftp
+        shell: pwsh
+        run: |
+          $deploy_ftp = $env:DEPLOY_FTP
+          $skip = $env:SKIP_AGENT_UPGRADE
+          $cond = ($deploy_ftp -eq 'true') -and ($skip -eq 'false')
+          if ($cond) {
+            "run_job=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+          else {
+            "run_job=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+      - name: Download build-vars
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build-vars
 
-  # # ----------------------------
-  # # backup_ftp
-  # # ----------------------------
-  # backup_ftp:
-  #   name: backup_ftp
-  #   runs-on: windows-latest
-  #   needs: checkout
-  #   steps:
-  #     - id: decide
-  #       name: Decide whether to run backup_ftp
-  #       shell: pwsh
-  #       run: |
-  #         $backup_agent = $env:BACKUP_AGENT
-  #         $deploy_ftp = $env:DEPLOY_FTP
-  #         $skip = $env:SKIP_AGENT_UPGRADE
-  #         $cond = ($backup_agent -eq 'true') -and ($deploy_ftp -eq 'true') -and ($skip -eq 'false')
-  #         if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+      - name: Deploy to FTP
+        if: ${{ steps.decide.outputs.run_job == 'true' }}
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build uploadftp
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
 
-  #     - name: Download build-vars
-  #       if: ${{ steps.decide.outputs.run_job == 'true' }}
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: build-vars
+  # ----------------------------
+  # build_services (wait)
+  # ----------------------------
+  build_services:
+    name: build_services
+    runs-on: windows-latest
+    needs: checkout
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - name: Build services (wait)
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build wait
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
+  # ----------------------------
+  # build_ingest_service
+  # ----------------------------
+  build_ingest_service:
+    name: build_ingest_service
+    runs-on: windows-latest
+    needs: build_services
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - name: Build ingest service
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build ingest
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
 
-  #     - name: Backup FTP
-  #       if: ${{ steps.decide.outputs.run_job == 'true' }}
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -build backupftp
+  # ----------------------------
+  # build_scheduler_service
+  # ----------------------------
+  build_scheduler_service:
+    name: build_scheduler_service
+    runs-on: windows-latest
+    needs: build_services
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - name: Build scheduler service
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build scheduler
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
 
-  # # ----------------------------
-  # # deploy_ftp
-  # # ----------------------------
-  # deploy_ftp:
-  #   name: deploy_ftp
-  #   runs-on: windows-latest
-  #   needs: build_agent_installer
-  #   steps:
-  #     - id: decide
-  #       name: Decide whether to run deploy_ftp
-  #       shell: pwsh
-  #       run: |
-  #         $deploy_ftp = $env:DEPLOY_FTP
-  #         $skip = $env:SKIP_AGENT_UPGRADE
-  #         $cond = ($deploy_ftp -eq 'true') -and ($skip -eq 'false')
-  #         if ($cond) { Write-Host "run_job=true" >> $env:GITHUB_OUTPUT } else { Write-Host "run_job=false" >> $env:GITHUB_OUTPUT }
+  # ----------------------------
+  # build_api_service
+  # ----------------------------
+  build_api_service:
+    name: build_api_service
+    runs-on: windows-latest
+    needs: build_services
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - name: Build api service
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build api
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
 
-  #     - name: Download build-vars
-  #       if: ${{ steps.decide.outputs.run_job == 'true' }}
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: build-vars
+  # ----------------------------
+  # build_ui_service
+  # ----------------------------
+  build_ui_service:
+    name: build_ui_service
+    runs-on: windows-latest
+    needs: build_services
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - name: Build UI service
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build ui
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
 
-  #     - name: Deploy to FTP
-  #       if: ${{ steps.decide.outputs.run_job == 'true' }}
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -build uploadftp
+  # ----------------------------
+  # build_images
+  # ----------------------------
+  build_images:
+    name: build_images
+    runs-on: windows-latest
+    needs:
+      - build_ui_service
+      - build_api_service
+      - build_scheduler_service
+      - build_ingest_service
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - name: Build docker images
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build all
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
 
-  # # ----------------------------
-  # # build_services (wait)
-  # # ----------------------------
-  # build_services:
-  #   name: build_services
-  #   runs-on: windows-latest
-  #   needs: checkout
-  #   steps:
-  #     - name: Build services (wait)
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -build wait
+  # ----------------------------
+  # upload_images (split into multiple steps)
+  # ----------------------------
+  upload_images:
+    name: upload_images
+    runs-on: windows-latest
+    needs: build_images
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - name: Upload UI image
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build ui
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
 
-  # # ----------------------------
-  # # build_ingest_service
-  # # ----------------------------
-  # build_ingest_service:
-  #   name: build_ingest_service
-  #   runs-on: windows-latest
-  #   needs: build_services
-  #   steps:
-  #     - name: Build ingest service
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -build ingest
+      - name: Upload ingest image
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build ingest
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
 
-  # # ----------------------------
-  # # build_scheduler_service
-  # # ----------------------------
-  # build_scheduler_service:
-  #   name: build_scheduler_service
-  #   runs-on: windows-latest
-  #   needs: build_services
-  #   steps:
-  #     - name: Build scheduler service
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -build scheduler
+      - name: Upload scheduler image
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build scheduler
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
 
-  # # ----------------------------
-  # # build_api_service
-  # # ----------------------------
-  # build_api_service:
-  #   name: build_api_service
-  #   runs-on: windows-latest
-  #   needs: build_services
-  #   steps:
-  #     - name: Build api service
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -build api
-
-  # # ----------------------------
-  # # build_ui_service
-  # # ----------------------------
-  # build_ui_service:
-  #   name: build_ui_service
-  #   runs-on: windows-latest
-  #   needs: build_services
-  #   steps:
-  #     - name: Build UI service
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -build ui
-
-  # # ----------------------------
-  # # build_images
-  # # ----------------------------
-  # build_images:
-  #   name: build_images
-  #   runs-on: windows-latest
-  #   needs:
-  #     - build_ui_service
-  #     - build_api_service
-  #     - build_scheduler_service
-  #     - build_ingest_service
-  #   steps:
-  #     - name: Build docker images
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -buildimg all
-
-  # # ----------------------------
-  # # upload_images (split into multiple steps)
-  # # ----------------------------
-  # upload_images:
-  #   name: upload_images
-  #   runs-on: windows-latest
-  #   needs: build_images
-  #   steps:
-  #     - name: Upload UI image
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -uploadimg ui
-
-  #     - name: Upload ingest image
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -uploadimg ingest
-
-  #     - name: Upload scheduler image
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -uploadimg scheduler
-
-  #     - name: Upload api image
-  #       shell: pwsh
-  #       run: |
-  #         cd arexdata-dsp
-  #         ..\arexdata-devops\devops\build_dev.ps1 -uploadimg api
+      - name: Upload api image
+        shell: pwsh
+        run: |
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\build_dev.ps1" -build api
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
 
   # # ----------------------------
   # # deploy_dev_eu
   # # ----------------------------
-  # deploy_dev_eu:
-  #   name: deploy dev.eu.arexdata.com
-  #   runs-on: windows-latest
-  #   needs: upload_images
-  #   steps:
-  #     - name: Deploy to dev.eu.arexdata.com
-  #       shell: pwsh
-  #       run: |
-  #         kubectl config use-context eu
-  #         kubectl config get-contexts
-  #         cd arexdata-devops\devops
-  #         .\deploy.ps1 -operation install -environment dev -apps -domain dev.eu.arexdata.com -use_mssql -nodepool dev -noapm
-
+  deploy_dev_eu:
+    name: deploy dev.eu.arexdata.com
+    runs-on: windows-latest
+    needs: upload_images
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - name: Deploy to dev.eu.arexdata.com
+        shell: pwsh
+        run: |
+          # kubectl config use-context eu
+          # kubectl config get-contexts
+          cd "${{ github.workspace }}\arexdata-dsp"
+          pwsh "${{ github.workspace }}\arexdata-devops\devops\deploy.ps1" -operation install -environment dev -apps -domain dev.eu.arexdata.com -use_mssql -nodepool dev -noapm
+        env:
+          AREXDATA_BUILD_NUMBER: ${{ github.run_number }}
   # # ----------------------------
   # # deploy_dev_lab
   # # ----------------------------
